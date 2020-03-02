@@ -1,0 +1,51 @@
+pragma solidity >=0.5.0 <0.6.0;
+import "./ownable.sol";
+
+contract PennyAuction is Ownable{
+    mapping (address => uint) ownerToBids;
+    
+    uint totalAuctioned;
+    
+    struct Auction{
+        uint payout;
+        uint price;
+        uint64 endDate;
+        address winner;
+        bool complete;
+    }
+    
+    Auction[] public auctions;
+    
+    function createAuction(uint payout, uint64 endDate) public{
+        auctions.push(Auction(payout, 0, endDate, owner(), false));
+        totalAuctioned += payout;
+    }
+    
+    function buyBids() public payable{
+        require(msg.value % 100000000000000 == 0);
+        ownerToBids[msg.sender] += msg.value / 100000000000000;
+    }
+    
+    function bid(uint id) public{
+        require(ownerToBids[msg.sender] >= 1);
+        require(auctions[id].endDate > now);
+        ownerToBids[msg.sender] -= 1;
+        auctions[id].winner = msg.sender;
+        if(auctions[id].endDate - now <= 20 seconds){
+            auctions[id].endDate += 20 seconds;
+        }
+    }
+    
+    function finishAuction(uint id) public payable{
+        require(msg.sender == auctions[id].winner);
+        require(msg.value == auctions[id].price);
+        require(auctions[id].complete == false);
+        msg.sender.transfer(auctions[id].payout);
+        auctions[id].complete = true;
+        totalAuctioned -= auctions[id].payout;
+    }
+    
+    function withdraw() public onlyOwner{
+        msg.sender.transfer(address(this).balance - totalAuctioned);
+    }
+}
